@@ -7,14 +7,14 @@ import argparse
 import json
 import math
 import os
-from util import tokenize_english_word, tokenize_char, traditional_to_simplified
+from util import tokenize_english_word, tokenize_char, traditional_to_simplified, tokenize_chinese_word
 from collections import Counter
 import matplotlib.pyplot as plt
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--crawl_data_path', default='../wikipedia_chinese/output.json', type=str, required=False)
-    parser.add_argument('--language', default='chinese', type=str, choices=['english', 'chinese'], required=False)
+    parser.add_argument('--crawl_data_path', default='../data/output_english.json', type=str, required=False)
+    parser.add_argument('--language', default='english', type=str, choices=['english', 'chinese'], required=False)
     return parser.parse_args()
 
 def load_crawl_data(crawl_data_path, language):
@@ -29,13 +29,16 @@ def load_crawl_data(crawl_data_path, language):
             corpus += content + " "
     return corpus.lower()
 
-def stat_corpus_word(corpus):
-    words = tokenize_english_word(corpus)
+def stat_corpus_word(corpus, language):
+    if language == 'english':
+        words = tokenize_english_word(corpus)
+    else:
+        words = tokenize_chinese_word(corpus)
     word_counter = Counter(words)
     sorted_word_counts = word_counter.most_common(500)
-    for item in sorted_word_counts:
+    for index, item in enumerate(sorted_word_counts):
         if item[0] == ' ':
-            item[0] = 'space'
+            sorted_word_counts.remove(item)
             break
     return sorted_word_counts
 
@@ -48,10 +51,7 @@ def stat_corpus_char(corpus, language):
         sorted_char_counts = char_counter.most_common()
     for index, item in enumerate(sorted_char_counts):
         if item[0] == ' ':
-            if language == 'chinese':
-                sorted_char_counts.remove(item)
-            else:
-                sorted_char_counts[index] = ('space', item[1])
+            sorted_char_counts.remove(item)
             break
     return sorted_char_counts
 
@@ -81,34 +81,34 @@ def plot_freq(counter, ax, title):
     ax.legend(fontsize=14)
     ax.tick_params(axis='both', which='major', labelsize=14)
 
-def plot_zipf_law_graphs_english(word_counter, char_counter):
-    # Plot the first graph (normal frequency)
-    fig1, (ax1, ax2) = plt.subplots(2, 1, figsize=(18, 16))
-    plot_freq(word_counter, ax1, f"Zipf's Law ({language.capitalize()} Words): Frequency vs Rank")
-    plot_freq(char_counter, ax2, f"Zipf's Law ({language.capitalize()} Characters): Frequency vs Rank")
-    plt.tight_layout()
-    plt.savefig(f'image/zipf_law_frequency_{language}.png')
-    plt.close(fig1)
+# def plot_zipf_law_graphs_english(word_counter, char_counter):
+#     # Plot the first graph (normal frequency)
+#     fig1, (ax1, ax2) = plt.subplots(2, 1, figsize=(18, 16))
+#     plot_freq(word_counter, ax1, f"Zipf's Law ({language.capitalize()} Words): Frequency vs Rank")
+#     plot_freq(char_counter, ax2, f"Zipf's Law ({language.capitalize()} Characters): Frequency vs Rank")
+#     plt.tight_layout()
+#     plt.savefig(f'image/zipf_law_frequency_{language}.png')
+#     plt.close(fig1)
 
-    # Plot the second graph (logarithmic frequency)
-    fig2, (ax3, ax4) = plt.subplots(2, 1, figsize=(18, 16))
-    plot_log_freq(word_counter, ax3, f"Zipf's Law ({language.capitalize()} Words): Frequency vs Rank (Log Scale)")
-    plot_log_freq(char_counter, ax4, f"Zipf's Law ({language.capitalize()} Characters): Frequency vs Rank (Log Scale)")
-    plt.tight_layout()
-    plt.savefig(f'image/zipf_law_log_frequency_{language}.png')
-    plt.close(fig2)
+#     # Plot the second graph (logarithmic frequency)
+#     fig2, (ax3, ax4) = plt.subplots(2, 1, figsize=(18, 16))
+#     plot_log_freq(word_counter, ax3, f"Zipf's Law ({language.capitalize()} Words): Frequency vs Rank (Log Scale)")
+#     plot_log_freq(char_counter, ax4, f"Zipf's Law ({language.capitalize()} Characters): Frequency vs Rank (Log Scale)")
+#     plt.tight_layout()
+#     plt.savefig(f'image/zipf_law_log_frequency_{language}.png')
+#     plt.close(fig2)
 
-def plot_zipf_law_graphs_chinese(char_counter):
+def plot_zipf_law_graphs_chinese(word_counter, language):
     # Plot the first graph (normal frequency)
     fig1, ax1 = plt.subplots(figsize=(18, 10))
-    plot_freq(char_counter, ax1, f"Zipf's Law ({language.capitalize()} Characters): Frequency vs Rank")
+    plot_freq(word_counter, ax1, f"Zipf's Law ({language.capitalize()} Words): Frequency vs Rank")
     plt.tight_layout()
     plt.savefig(f'image/zipf_law_frequency_{language}.png')
     plt.close(fig1)
 
     # Plot the second graph (logarithmic frequency)
     fig2, ax2 = plt.subplots(figsize=(18, 10))
-    plot_log_freq(char_counter, ax2, f"Zipf's Law ({language.capitalize()} Characters): Frequency vs Rank (Log Scale)")
+    plot_log_freq(word_counter, ax2, f"Zipf's Law ({language.capitalize()} words): Frequency vs Rank (Log Scale)")
     plt.tight_layout()
     plt.savefig(f'image/zipf_law_log_frequency_{language}.png')
     plt.close(fig2)
@@ -183,21 +183,19 @@ if __name__ == '__main__':
         raise ValueError(f'File not found: {crawl_data_path}')
     corpus = load_crawl_data(crawl_data_path, language)
     if language == 'english':
-        word_counter = stat_corpus_word(corpus)
+        word_counter = stat_corpus_word(corpus, language)
         char_counter = stat_corpus_char(corpus, language)
     else:
-        word_counter = None
+        word_counter = stat_corpus_word(corpus, language)
         char_counter = stat_corpus_char(corpus, language)
 
     # Call the functions
-    output_statistics(char_counter, word_counter, language)
-    if language == 'english':
-        plot_zipf_law_graphs_english(word_counter, char_counter)
-    else:
-        plot_zipf_law_graphs_chinese(char_counter)
-    entropy = compute_char_entropy(char_counter)
-    print(f"Entropy of {language.capitalize()} characters: {entropy:.2f} bits")
+    # output_statistics(char_counter, word_counter, language)
 
-    plot_entropy_vs_data_scale(corpus, language)
-    print(f"Entropy vs Data Scale plot saved as 'entropy_vs_data_scale_{language}.png'")
+    plot_zipf_law_graphs_chinese(word_counter, language)
+    # entropy = compute_char_entropy(char_counter)
+    # print(f"Entropy of {language.capitalize()} characters: {entropy:.2f} bits")
+
+    # plot_entropy_vs_data_scale(corpus, language)
+    # print(f"Entropy vs Data Scale plot saved as 'entropy_vs_data_scale_{language}.png'")
 

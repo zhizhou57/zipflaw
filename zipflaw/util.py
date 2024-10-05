@@ -1,4 +1,5 @@
 import re
+import jieba
 
 def clean_text(text):
     return re.sub(r'[^a-zA-Z]+', ' ', text)
@@ -9,6 +10,11 @@ def clean_chinese_text(text):
 def tokenize_english_word(text):
     cleaned_text = clean_text(text)
     words = cleaned_text.split()
+    return words
+
+def tokenize_chinese_word(text):
+    cleaned_text = clean_chinese_text(text)
+    words = jieba.lcut(cleaned_text)
     return words
 
 def tokenize_char(text, language):
